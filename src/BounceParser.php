@@ -63,7 +63,7 @@ class BounceParser
                 $value = array_map(function ($line) {
                     $parts = explode("=", $line, 2);
                     $name = $parts[0];
-                    $value = $parts[1];
+                    $value = $parts[1] ?? "";
                     return [$name, $value];
                 }, $value);
 
