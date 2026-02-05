@@ -86,7 +86,7 @@ class BounceParser
 
         $body = null;
         foreach ($msg->getParts() as $part) {
-            if ($part->getType() == "message/delivery-status") {
+            if (strtolower($part->getType()) == "message/delivery-status") {
                 $body = $part->getContent();
                 break;
             }
