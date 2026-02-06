@@ -43,59 +43,91 @@ class BounceParser
     }
 
 
+    static function normalizeLineEndings(string $message)
+    {
+        $rawMessage = $message; // 您收到的原始退信字符串
+
+        // 獲取 Boundary ID
+        preg_match('/boundary="([^"]+)"/', $rawMessage, $matches);
+        if (isset($matches[1])) {
+            $boundary = $matches[1];
+            $endBoundary = "--" . $boundary . "--";
+
+            // 如果內容中沒有結尾邊界，手動補上
+            if (strpos($rawMessage, $endBoundary) === false) {
+                $rawMessage = rtrim($rawMessage) . "\n\n" . $endBoundary . "\n";
+            }
+        }
+
+
+        return $rawMessage;
+    }
+
+    static function findBoundary(string $message)
+    {
+        preg_match('/boundary="([^"]+)"/', $message, $matches);
+        if (isset($matches[1])) {
+            return $matches[1];
+        }
+        return null;
+    }
+
     static function parse(string $message)
     {
-        $value = "";
-        $msg = \Laminas\Mime\Message::createFromMessage($message);
+        $message = self::normalizeLineEndings($message);
 
-        $headers_array = $msg->getParts()[0]->getHeadersArray();
-        foreach ($headers_array as $header) {
-            if ($header[0] == "Content-Type") {
-                $value = $header[1];
+        try {
+            $boundary =  self::findBoundary($message);
 
-                //join back to string
-                $value = explode(";", $value);
-                //trim all from lines
-                $value = array_map(function ($line) {
-                    return trim($line);
-                }, $value);
+            $msg = \Laminas\Mime\Message::createFromMessage($message, $boundary);
 
-                $value = array_map(function ($line) {
-                    $parts = explode("=", $line, 2);
-                    $name = $parts[0];
-                    $value = $parts[1] ?? "";
-                    return [$name, $value];
-                }, $value);
-
-                //find boundary
-                foreach ($value as $i => $line) {
-                    if ($line[0] == "boundary") {
-                        $value = $line[1];
-                        //remove quotes
-                        $value = trim($value, '"');
-                        break;
-                    }
+            $body = null;
+            foreach ($msg->getParts() as $part) {
+                if (strpos($part->type, 'delivery-status') !== false) {
+                    $body = $part->getContent();
+                    break;
                 }
-                continue;
             }
-        }
 
-        $boundary =  $value;
-
-        $msg = \Laminas\Mime\Message::createFromMessage($message, $boundary);
-
-        $body = null;
-        foreach ($msg->getParts() as $part) {
-            if (strtolower($part->getType()) == "message/delivery-status") {
-                $body = $part->getContent();
-                break;
+            if ($body) {
+                return self::parseDeliveryStatus($body);
             }
+        } catch (\Exception $e) {
         }
 
-        if (!$body) {
-            return [];
+        return self::parseWithRegex($message);
+    }
+
+    static function parseWithRegex(string $message)
+    {
+        //用Regex 找出 Final-Recipient, Action, Status, Diagnostic-Code 等字段
+        $result = [];
+
+        // 提取 Final-Recipient
+        if (preg_match('/Final-Recipient:\s*(.+?)(?:\r?\n|$)/i', $message, $matches)) {
+            $result['final-recipient'] = trim($matches[1]);
         }
 
-        return self::parseDeliveryStatus($body);
+        // 提取 Action
+        if (preg_match('/Action:\s*(.+?)(?:\r?\n|$)/i', $message, $matches)) {
+            $result['action'] = trim($matches[1]);
+        }
+
+        // 提取 Status
+        if (preg_match('/Status:\s*(\d+\.\d+\.\d+)/i', $message, $matches)) {
+            $result['status'] = trim($matches[1]);
+        }
+
+        // 提取 Diagnostic-Code
+        if (preg_match('/Diagnostic-Code:\s*(?:smtp;)?\s*(.+?)(?=\r?\n[A-Z]|\r?\n\r?\n|$)/is', $message, $matches)) {
+            $result['diagnostic-code'] = trim($matches[1]);
+        }
+
+        // 提取 Remote-MTA (如果有的話)
+        if (preg_match('/Remote-MTA:\s*(?:dns;)?\s*(.+?)(?:\r?\n|$)/i', $message, $matches)) {
+            $result['remote-mta'] = trim($matches[1]);
+        }
+
+        return $result;
     }
 }
