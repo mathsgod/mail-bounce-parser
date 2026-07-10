@@ -1,3 +1,4 @@
 vendor
 index.php
 test.eml
+.phpunit.result.cache
