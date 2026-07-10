@@ -8,10 +8,11 @@ A PHP library for parsing email bounce messages and extracting delivery status n
 - Extract delivery status information
 - Identify recipient addresses and bounce reasons
 - Support for standard DSN (Delivery Status Notification) format
-- Built on top of Laminas Mail component
+- Built on top of `zbateson/mail-mime-parser`
 
 ## Requirements
 
+- PHP 8.1 or higher
 - Composer
 
 ## Installation
