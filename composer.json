@@ -1,5 +1,6 @@
 {
     "name": "mathsgod/mail-bounce-parser",
+    "description": "A PHP library for parsing email bounce messages and extracting delivery status notifications.",
     "license": "MIT",
     "authors": [
         {
