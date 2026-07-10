@@ -2,6 +2,9 @@
 
 namespace Mail;
 
+use ZBateson\MailMimeParser\Message;
+use ZBateson\MailMimeParser\Message\IMessagePart;
+
 class BounceParser
 {
 
@@ -63,34 +66,22 @@ class BounceParser
         return $rawMessage;
     }
 
-    static function findBoundary(string $message)
-    {
-        preg_match('/boundary="([^"]+)"/', $message, $matches);
-        if (isset($matches[1])) {
-            return $matches[1];
-        }
-        return null;
-    }
-
     static function parse(string $message)
     {
         $message = self::normalizeLineEndings($message);
 
         try {
-            $boundary =  self::findBoundary($message);
+            $msg = Message::from($message, false);
 
-            $msg = \Laminas\Mime\Message::createFromMessage($message, $boundary);
+            $part = $msg->getPart(0, function (IMessagePart $part) {
+                return stripos($part->getContentType(), 'delivery-status') !== false;
+            });
 
-            $body = null;
-            foreach ($msg->getParts() as $part) {
-                if (strpos($part->type, 'delivery-status') !== false) {
-                    $body = $part->getContent();
-                    break;
+            if ($part !== null) {
+                $body = $part->getContent();
+                if ($body) {
+                    return self::parseDeliveryStatus($body);
                 }
-            }
-
-            if ($body) {
-                return self::parseDeliveryStatus($body);
             }
         } catch (\Exception $e) {
         }
