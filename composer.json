@@ -8,8 +8,8 @@
         }
     ],
     "require": {
-        "php": "~8.0.0 || ~8.1.0 || ~8.2.0",
-        "laminas/laminas-mail": "^2.22"
+        "php": "~8.1.0 || ~8.2.0 || ~8.3.0",
+        "laminas/laminas-mail": "^2.25"
     },
     "autoload": {
         "psr-4": {
